@@ -1,4 +1,5 @@
 const staticCacheName = "site-static-v1.2";
+const dynamicCacheName = "site-dynamic-v1";
 const assets = [
   "/",
   "/index.html",
@@ -42,7 +43,16 @@ self.addEventListener("activate", event => {
 self.addEventListener("fetch", event => {
   event.respondWith(
     caches.match(event.request).then(cachedresponse => {
-      return cachedresponse || fetch(event.request);
+      // if the resource exists in ANY of the caches, it is returned
+      // if the resource doesn't exist in ANY of the caches, then it is fetched from the server
+      return cachedresponse || fetch(event.request).then(fetchresponse => {
+        // before we return the fetched response, we add it to the dynamic cache
+        return caches.open(dynamicCacheName).then(cache => {
+          // we store the resource by url and clone the response, because once the response is used up, it doesn't exist anymore
+          cache.put(event.request.url, fetchresponse.clone());
+          return fetchresponse;
+        })
+      });
     })
   );
 });
