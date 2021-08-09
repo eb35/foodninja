@@ -1,4 +1,4 @@
-const staticCacheName = "site-static-v1.2";
+const staticCacheName = "site-static-v3";
 const dynamicCacheName = "site-dynamic-v1";
 const assets = [
   "/",
@@ -10,7 +10,8 @@ const assets = [
   "/css/materialize.min.css",
   "/img/dish.png",
   "https://fonts.googleapis.com/icon?family=Material+Icons",
-  "https://fonts.gstatic.com/s/materialicons/v97/flUhRq6tzZclQEJ-Vdg-IuiaDsNcIhQ8tQ.woff2"
+  "https://fonts.gstatic.com/s/materialicons/v97/flUhRq6tzZclQEJ-Vdg-IuiaDsNcIhQ8tQ.woff2",
+  "/pages/fallback.html"
 ];
 
 // install event
@@ -32,7 +33,7 @@ self.addEventListener("activate", event => {
   event.waitUntil(
     caches.keys().then(keys => {
       return Promise.all(keys
-        .filter(key => key !== staticCacheName)
+        .filter(key => key !== staticCacheName && key !== dynamicCacheName)
         .map(key => caches.delete(key))
       );
     })
@@ -53,7 +54,7 @@ self.addEventListener("fetch", event => {
           return fetchresponse;
         })
       });
-    })
+    }).catch(() => caches.match("/pages/fallback.html"))
   );
 });
 
