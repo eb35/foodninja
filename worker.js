@@ -1,5 +1,6 @@
 const staticCacheName = "site-static-v3";
-const dynamicCacheName = "site-dynamic-v1";
+const dynamicCacheName = "site-dynamic-v3";
+const dynamicCacheLimit = 15;
 const assets = [
   "/",
   "/index.html",
@@ -13,6 +14,16 @@ const assets = [
   "https://fonts.gstatic.com/s/materialicons/v97/flUhRq6tzZclQEJ-Vdg-IuiaDsNcIhQ8tQ.woff2",
   "/pages/fallback.html"
 ];
+
+const limitCacheSize = (name, size) => {
+  caches.open(name).then(cache => {
+    cache.keys().then(keys => {
+      if (keys.length > size) {
+        cache.delete(keys[0]).then(limitCacheSize(name, size));
+      }
+    });
+  });
+};
 
 // install event
 self.addEventListener("install", event => {
@@ -50,11 +61,17 @@ self.addEventListener("fetch", event => {
         // before we return the fetched response, we add it to the dynamic cache
         return caches.open(dynamicCacheName).then(cache => {
           // we store the resource by url and clone the response, because once the response is used up, it doesn't exist anymore
-          cache.put(event.request.url, fetchresponse.clone());
+          cache.put(event.request.url, fetchresponse.clone()).then(() => {
+            limitCacheSize(dynamicCacheName, dynamicCacheLimit);
+          });
           return fetchresponse;
         })
       });
-    }).catch(() => caches.match("/pages/fallback.html"))
+    }).catch(() => {
+      if (event.request.url.indexOf(".html") > -1) {
+        return caches.match("/pages/fallback.html")
+      }
+    })
   );
 });
 
