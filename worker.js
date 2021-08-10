@@ -14,6 +14,17 @@ const assets = [
   "/pages/fallback.html"
 ];
 
+// cache size limit
+const limitCacheSize = (name, size) => {
+  caches.open(name).then(cache => {
+    cache.keys().then(keys => {
+      if (keys.length > size) {
+        cache.delete(keys[0]).then(limitCacheSize(name, size));
+      }
+    });
+  })
+};
+
 // install event
 self.addEventListener("install", event => {
   // waituntil keeps the worker running until it's done caching (you don't want it to quit prematurely)
@@ -51,10 +62,15 @@ self.addEventListener("fetch", event => {
         return caches.open(dynamicCacheName).then(cache => {
           // we store the resource by url and clone the response, because once the response is used up, it doesn't exist anymore
           cache.put(event.request.url, fetchresponse.clone());
+          limitCacheSize(dynamicCacheName, 15);
           return fetchresponse;
         })
       });
-    }).catch(() => caches.match("/pages/fallback.html"))
+    }).catch(() => {
+      if (event.request.url.indexOf(".html") > -1) {
+        return caches.match("/pages/fallback.html")
+      }
+    })
   );
 });
 
