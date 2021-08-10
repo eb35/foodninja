@@ -1,5 +1,6 @@
-const staticCacheName = "site-static-v3";
-const dynamicCacheName = "site-dynamic-v1";
+const staticCacheName = "site-static-v3.5";
+const dynamicCacheName = "site-dynamic-v3.5";
+const dynamicCacheLimit = 15;
 const assets = [
   "/",
   "/index.html",
@@ -14,7 +15,6 @@ const assets = [
   "/pages/fallback.html"
 ];
 
-// cache size limit
 const limitCacheSize = (name, size) => {
   caches.open(name).then(cache => {
     cache.keys().then(keys => {
@@ -22,7 +22,7 @@ const limitCacheSize = (name, size) => {
         cache.delete(keys[0]).then(limitCacheSize(name, size));
       }
     });
-  })
+  });
 };
 
 // install event
@@ -53,25 +53,28 @@ self.addEventListener("activate", event => {
 
 // fetch event
 self.addEventListener("fetch", event => {
-  event.respondWith(
-    caches.match(event.request).then(cachedresponse => {
-      // if the resource exists in ANY of the caches, it is returned
-      // if the resource doesn't exist in ANY of the caches, then it is fetched from the server
-      return cachedresponse || fetch(event.request).then(fetchresponse => {
-        // before we return the fetched response, we add it to the dynamic cache
-        return caches.open(dynamicCacheName).then(cache => {
-          // we store the resource by url and clone the response, because once the response is used up, it doesn't exist anymore
-          cache.put(event.request.url, fetchresponse.clone());
-          limitCacheSize(dynamicCacheName, 15);
-          return fetchresponse;
-        })
-      });
-    }).catch(() => {
-      if (event.request.url.indexOf(".html") > -1) {
-        return caches.match("/pages/fallback.html")
-      }
-    })
-  );
+  if (event.request.url.indexOf("firestore.googleapis.com") === -1) {
+    event.respondWith(
+      caches.match(event.request).then(cachedresponse => {
+        // if the resource exists in ANY of the caches, it is returned
+        // if the resource doesn't exist in ANY of the caches, then it is fetched from the server
+        return cachedresponse || fetch(event.request).then(fetchresponse => {
+          // before we return the fetched response, we add it to the dynamic cache
+          return caches.open(dynamicCacheName).then(cache => {
+            // we store the resource by url and clone the response, because once the response is used up, it doesn't exist anymore
+            cache.put(event.request.url, fetchresponse.clone()).then(() => {
+              limitCacheSize(dynamicCacheName, dynamicCacheLimit);
+            });
+            return fetchresponse;
+          })
+        });
+      }).catch(() => {
+        if (event.request.url.indexOf(".html") > -1) {
+          return caches.match("/pages/fallback.html")
+        }
+      })
+    );
+  }
 });
 
 self.addEventListener("push", event => {
